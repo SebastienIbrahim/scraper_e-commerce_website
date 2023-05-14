@@ -1,13 +1,13 @@
 import re
 import random
 import time
-import os
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service 
 from selenium.webdriver.chrome.options import Options
 from utils.poppup import popupmsg
 from utils.configs import get_config
+
 
 class Driver:
 
@@ -85,8 +85,8 @@ class Crawler:
     def parse(self, url):
         bs = self.getPage(url)
         if bs is not None:
-            title = self.safe_get(bs, self.site.titleTag)
-            body = self.safe_get(bs, self.site.bodyTag)
+            title = self.safeGet(bs, self.site.titleTag)
+            body = self.safeGet(bs, self.site.bodyTag)
             if title != '' and body != '':
                 content = Content(url, title, body)
                 content.print()
