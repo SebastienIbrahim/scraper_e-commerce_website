@@ -1,8 +1,8 @@
 import os
 import yaml
 
-def get_config():
+def get_config(device: str = "desktop"):
+
     """Get config from yaml file ex: get_config('desktop_config.yml')"""
-    with open(os.path.dirname(os.path.abspath("desktop_config.yml"))+"/utils/desktop_config.yml") as file:
-        fruits_list = yaml.load(file, Loader=yaml.FullLoader)
-    return fruits_list
+    with open(os.path.dirname(os.path.abspath(f"{device}_config.yml"))+"/utils/desktop_config.yml", "r") as file:
+        return yaml.safe_load(file) or {}

@@ -6,10 +6,19 @@ sites:
     url: https://www.cdiscount.com
     target_pattern: (\/f-\d+.*\.html)|(\/mpv.*-\d+.*\.html)
     absolute_url: True
-    title_tag: //h1[@itemprop="name"] 
-    ean_tag: //*[contains(text(),'pr_ean')]
-    ean_pattern: (\["pr_ean"\]=).(\d+)
-    price_tag: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
-    seller_tag: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
-    captcha_tag: //div[contains(@class, "white-square")][contains(@p, "")]
-    seller_listing_tag: //p[@class="fpOtherOffer"] # //p[@class="fpOtherOffer"]/a/@href
+
+    tags:
+      title: //h1[@itemprop="name"] 
+      ean: //*[contains(text(),'pr_ean')]
+      price: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
+      seller: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
+      captcha: //div[contains(@class, "white-square")][contains(@p, "")]
+      seller_listing: //p[@class="fpOtherOffer"]//@href # //p[@class="fpOtherOffer"]/a/@href
+      mp_sellers_prices: //p[@class="price priceColor"]//text()
+      website_seller_price:
+
+    patterns:
+      ean: (\["pr_ean"\]=).(\d+)
+    
+    groups:
+      ean: 2
