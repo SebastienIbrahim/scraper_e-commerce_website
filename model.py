@@ -11,7 +11,7 @@ from utils.configs import get_config
 from utils.poppup import popupmsg
 get_config("desktop")
 
-path = "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver" #"/home/user/Téléchargements/chromedriver_linux64/chromedriver"
+path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver" #"/home/user/Téléchargements/chromedriver_linux64/chromedriver"
 
 # /usr/bin/google-chrome --remote-debugging-port=2023 --user-data-dir="/home/mtd/Bureau/Ressistance/Bot/chromedriver_linux64"
 class Driver:
