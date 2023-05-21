@@ -2,6 +2,7 @@
 %autoreload 2
 import time
 import re
+from typing import List
 from model import Website, Crawler, Driver, get_info_site
 from lxml import etree
 import bs4
@@ -15,20 +16,18 @@ cdiscount = Website(
     tags=info_site.get("tags"),
     patterns=info_site.get("patterns"),
     groups=info_site.get("groups"),
+    tags_get_from_seller_listing=info_site.get("tags_get_from_seller_listing")
 )
 
 crawler = Crawler(cdiscount)
+
 url = "https://www.cdiscount.com/electromenager/aspirateurs-nettoyeurs/karcher-vc6-our-family-aspirateur-balai-multifon/f-1101410-kar4054278834221.html?idOffre=1884935695#mpos=0|mp"
 url_other_seller = "https://www.cdiscount.com/mp-53739-kar4054278834221.html?Filter=New"
 tmp = crawler.get_page(url)
 
 tmp_other_seller = crawler.get_page(url_other_seller)
 
-tmp.find_all({"0"})
 dom = etree.HTML(str(tmp))
-dom.xpath(cdiscount.price_tag)
-cdiscound = Website('Cdiscount', 'https://www.cdiscount.com', '^(/.*)', True, 'h1', 'div.fpProductDescription', 'div.fpPrice', 'div.fpSeller', 'div.white-square', "")
-
 
 def safe_get(page_obj: bs4.BeautifulSoup, selector:str) -> str:
     selected_elems = etree.HTML(str(page_obj)).xpath(selector)
@@ -39,13 +38,28 @@ def safe_get(page_obj: bs4.BeautifulSoup, selector:str) -> str:
             return "\n".join([elem for elem in selected_elems])
     return ""
 
-tmp
 tmp_other_seller
 selected_elems = etree.HTML(str(tmp_other_seller)).xpath('//div[@class="fpBlk fpTab"]//text()')
 selected_elems = etree.HTML(str(tmp)).xpath("//*[contains(text(),'pr_ean')]")
 
-r = safe_get(tmp_other_seller,'//div[@class="fpBlk fpTab"]//text()')
-r1 = safe_get(tmp,'//h1[@itemprop="name"]')
+r = crawler.safe_get(tmp_other_seller,'//div[@class="fpBlk fpTab"]//text()')
+print(tmp_other_seller)
+
+def parse_seller_listing_page(selected_elems:str)-> List[dict]: 
+    """_summary_
+
+    Args:
+        bs (str): _description_
+
+    Returns:
+        List[dict]: _description_
+    """
+    tag_from_listing_page_raw_data = {tag: get_safe_pattern(selected_elems, self.website_info["patterns"].get(tag), self.website_info["groups"].get(tag)) for tag in self.website_info["tags_get_from_seller_listing"]}
+    offers = [{tag: tag_from_listing_page_raw_data[tag][seller_iterator] for tag in tag_from_listing_page_raw_data.keys()} for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))]
+    return offers
+
+tmp3 = crawler.parse_seller_listing_page(tmp_other_seller)
+
 print(r)
 
 def get_safe_pattern(selected_tag: str, pattern: str="(.*)", group: int= 0) -> str:
@@ -60,22 +74,31 @@ def get_safe_pattern(selected_tag: str, pattern: str="(.*)", group: int= 0) -> s
     return elems
 
 get_safe_pattern(r,"(.*\n.*)(?=Disponibilité)(.*)",0)
+get_safe_pattern(r, "(\d+\n€\d+)(.*)",0)
+get_safe_pattern(r, "(.*\n.)(\n.*)(\d+\n€\d+)", 0)
+get_safe_pattern(r, "(Expédié par :)\n(.*)", 1)
+get_safe_pattern(r, "Cdiscount|Ventes réalisées :(\n.*\d+)(.*)", 0)
+get_safe_pattern(r, "(.*\n)(.*\n.*)(?=Disponibilité)", 0)
+get_safe_pattern(r, "Cdiscount|(Évaluation(.*)\n(.*))", 0)
+
+
 get_safe_pattern(r1)
 
-re.findall("Voir conditions((\n|.)*?)VENDEUR PRO",r)
-print(r)
+def parse_seller_listing_page(self, bs:str)-> List[dict]: 
+    """_summary_
 
-def parse_seller_listing_page(self, url:str)-> dict: 
-    # TODO: check if it is absolute url or not
-    bs = self.get_page(url)
-    if bs is not None:
-        for tag_name, tag_attr in self.tags.items():
-            raw_elmt = self.safe_get(bs, tag_attr)
-            self.data[tag_name] = self.get_safe_pattern(raw_elmt, self.patterns.get(tag_name), self.groups.get(tag_name))
-        self.data["timestamp"] = int(time.time())
-        self.data["url"] = url
-        
-        
+    Args:
+        bs (str): _description_
+
+    Returns:
+        List[dict]: _description_
+    """
+
+    tag_from_listing_page_raw_data = {tag: self.get_safe_pattern(r, self.website_info["patterns"].get(tag), self.website_info["groups"].get(tag)) for tag in self.website_info["tags_get_from_seller_listing"]}
+    offers = [{tag: tag_from_listing_page_raw_data[tag][seller_iterator] for tag in tag_from_listing_page_raw_data.keys()} for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))]
+    return offers
+
+
 {
     "images" :["url1.com","url2.com"],
     "description": "Ou trouver iphone patatipatata",
@@ -98,7 +121,6 @@ def parse_seller_listing_page(self, url:str)-> dict:
     }
 
 
-  
 
 def is_absolute_url():
     pass
@@ -106,7 +128,7 @@ def is_absolute_url():
 
 def parse(self, url:str) -> dict:
     bs = self.get_page(url)
-    raw_data = {"infos": {}}
+    raw_data = {"offers": []}
     if bs is not None:
         for tag_name, tag_attr in self.website_info.tags.items():
             if tag_name in ["title", "ean", "url"]:
