@@ -65,6 +65,7 @@ get_safe_pattern(r1)
 re.findall("Voir conditions((\n|.)*?)VENDEUR PRO",r)
 print(r)
 
+
 def parse_seller_listing_page(self, url:str)-> dict: 
     # TODO: check if it is absolute url or not
     bs = self.get_page(url)
