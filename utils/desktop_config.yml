@@ -14,32 +14,45 @@ sites:
       seller: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
       captcha: //div[contains(@class, "white-square")][contains(@p, "")]
       seller_listing: //p[@class="fpOtherOffer"]//@href # //p[@class="fpOtherOffer"]/a/@href
-      mp_sellers_prices: //p[@class="price priceColor"]//text()
-      website_seller_price:
-      image_product : //ul[@class="jsFpZoomPic smallPic"]//@src
-      description : //div[@id="fpBulletPointReadMore"]
-      offer_count : //p[@class="fpOtherOffer"]
-      seller_price : //div[@class="fpBlk fpTab"]//text()
+      product_image: //ul[@class="jsFpZoomPic smallPic"]//@src
+      description: //div[@id="fpBulletPointReadMore"]
+      offer_count: //p[@class="fpOtherOffer"]
+      seller_price: //div[@class="fpBlk fpTab"]//text()
       seller_name: //div[@class="fpBlk fpTab"]//text()
       shipping_rate_price: //div[@class="fpBlk fpTab"]//text()
       expedition_country: //div[@class="fpBlk fpTab"]//text()
-      send_by_cdiscount : //div[@class="fpBlk fpTab"]//text()
-      sales_realized : //div[@class="fpBlk fpTab"]//text()
+      sales_realized: //div[@class="fpBlk fpTab"]//text()
       state: //div[@class="fpBlk fpTab"]//text()
-      seller_rating :  //div[@class="fpBlk fpTab"]//text()
+      seller_rating:  //div[@class="fpBlk fpTab"]//text()
 
 
     patterns:
       ean: (\["pr_ean"\]=).(\d+)
-      seller_price : (\d+\n€\d+)(.*)
+      seller_price: (\d+\n€\d+)(.*)
       seller_name: (.*\n.)(\n.*)(\d+\n€\d+)
-      shipping_rate_price : (.*\n.*)(?=Disponibilité)(.*)
-      expedition_country: 
-      send_by_cdiscount : 
-      sales_realized :
-      state: 
-      seller_rating : 
+      shipping_rate_price: (.*\n.*)(?=Disponibilité)(.*)
+      expedition_country: (Expédié par :)\n(.*)
+      #send_by_cdiscount: 
+      sales_realized: Cdiscount|Ventes réalisées :(\n.*\d+)(.*)
+      state: (.*\n)(.*\n.*)(?=Disponibilité)
+      seller_rating: Cdiscount|(Évaluation(.*)\n(.*))
 
-    
     groups:
       ean: 2
+      seller_price: 0
+      seller_name: 0
+      shipping_rate_price: 0
+      expedition_country: 1
+      sales_realized: 0
+      seller_rating: 0
+  
+    tags_get_from_seller_listing:
+      names:
+        - seller_price
+        - seller_name
+        - shipping_rate_price
+        - expedition_country
+        - sales_realized
+        - seller_rating
+        - state
+      commom_tag: //div[@class="fpBlk fpTab"]//text()

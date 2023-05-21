@@ -1,17 +1,17 @@
 import random
 import re
 import time
+from typing import List
 from lxml import etree
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-
+import bs4
 from utils.configs import get_config
 from utils.poppup import popupmsg
-get_config("desktop")
 
-path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver" #"/home/user/Téléchargements/chromedriver_linux64/chromedriver"
+path =  "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver" #"/home/user/Téléchargements/chromedriver_linux64/chromedriver"
 
 # /usr/bin/google-chrome --remote-debugging-port=2023 --user-data-dir="/home/mtd/Bureau/Ressistance/Bot/chromedriver_linux64"
 class Driver:
@@ -34,6 +34,7 @@ class Website:
         tags,
         patterns,
         groups,
+        tags_get_from_seller_listing
     ):
         self.name = name
         self.url = url
@@ -42,6 +43,7 @@ class Website:
         self.tags = tags
         self.patterns = patterns
         self.groups = groups
+        self.tags_get_from_seller_listing = tags_get_from_seller_listing
 
 
 class Content:
@@ -71,27 +73,70 @@ class Crawler:
             msg = f"This exception: {e} was raise when we try to get the page: {url}"
             popupmsg(msg)
             return None
-        return BeautifulSoup(self.driver.driver.page_source, "html.parser")
+        bs = BeautifulSoup(self.driver.driver.page_source, "html.parser")
+        if self.check_captcha(bs):
+            msg = f"We have been blocked by the website: {self.website_info.name} because of captcha"
+            popupmsg(msg)
+        return bs
 
-    def wait(delay_min, delay_max):
+    def wait(self, delay_min, delay_max):
         random_delay = random.randint(delay_min, delay_max)
         print(f"We wait for {random_delay} 's before continue")
         time.sleep(random_delay)
 
-    def safe_get(self, page_obj, selector):
+    def safe_get(self, page_obj: bs4.BeautifulSoup, selector:str) -> str:
         selected_elems = etree.HTML(str(page_obj)).xpath(selector)
         if selected_elems is not None and len(selected_elems) > 0:
-            return "\n".join([elem.text for elem in selected_elems])
+            try:
+                return "\n".join([elem.text.strip() for elem in selected_elems])
+            except Exception as e:
+                return "\n".join([elem for elem in selected_elems])
         return ""
 
-    def check_captcha(self, pageObj):
+    def get_safe_pattern(self, selected_tag: str, pattern: str="(.*)", group: int= 0) -> str:
+        """_summary_
+
+        Args:
+            selected_tag (str): _description_
+            pattern (str, optional): _description_. Defaults to "(.*)".
+            group (int, optional): _description_. Defaults to 0.
+
+        Returns:
+            str: _description_
+        """
+        pattern = pattern or "(.*)"
+        group = group or 0
+        try:
+            elems = [ captured_elem[group].strip() for captured_elem in re.findall(pattern,selected_tag)]
+        except IndexError :
+            elems = re.findall(pattern,selected_tag)[group]
+        if len(elems) < 2:
+            return "".join(elems)
+        return elems
+
+    def check_captcha(self, page_obj):
         is_captchat_found = False
         try:
-            selected_elems = pageObj.select(self.website_info.captcha_tag)
+            selected_elems = self.safe_get(page_obj, self.website_info.captcha)
             is_captchat_found = selected_elems is not None and len(selected_elems) > 0
+        # TODO: handle this exception explicitly
         except:
             is_captchat_found = False
         return is_captchat_found
+
+    def parse_seller_listing_page(self, bs:bs4.BeautifulSoup)-> List[dict]: 
+        """_summary_
+
+        Args:
+            bs (str): _description_
+
+        Returns:
+            List[dict]: _description_
+        """
+        selected_elems = self.safe_get(bs, self.website_info.tags_get_from_seller_listing.get("commom_tag"))
+        tag_from_listing_page_raw_data = {tag: self.get_safe_pattern(selected_elems, self.website_info.patterns.get(tag), self.website_info.groups.get(tag)) for tag in self.website_info.tags_get_from_seller_listing.get("names")}
+        offers = [{tag: tag_from_listing_page_raw_data[tag][seller_iterator] for tag in tag_from_listing_page_raw_data.keys()} for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))]
+        return offers
 
     def parse(self, url):
         bs = self.get_page(url)
@@ -112,14 +157,6 @@ class Crawler:
                 if not self.website_info.absoluteUrl:
                     targetPage = "{}{}".format(self.website_info.url, targetPage)
                 # self.parse(targetPage)
-
-
-def safe_get(pageObj, selector):
-    selectedElems = pageObj.select(selector=selector)
-    if selectedElems is not None and len(selectedElems) > 0:
-        return "\n".join([elem.get_text() for elem in selectedElems])
-    return ""
-
 
 
 
