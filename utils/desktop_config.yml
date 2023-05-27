@@ -6,6 +6,7 @@ sites:
     url: https://www.cdiscount.com
     target_pattern: (\/f-\d+.*\.html)|(\/mpv.*-\d+.*\.html)
     absolute_url: True
+    link_product_home_page: //a[@class="o-card__link flow--xs"]
 
     tags:
       title: //h1[@itemprop="name"] 
@@ -17,14 +18,6 @@ sites:
       product_image: //ul[@class="jsFpZoomPic smallPic"]//@src
       description: //div[@id="fpBulletPointReadMore"]
       offer_count: //p[@class="fpOtherOffer"]
-      seller_price: //div[@class="fpBlk fpTab"]//text()
-      seller_name: //div[@class="fpBlk fpTab"]//text()
-      shipping_rate_price: //div[@class="fpBlk fpTab"]//text()
-      expedition_country: //div[@class="fpBlk fpTab"]//text()
-      sales_realized: //div[@class="fpBlk fpTab"]//text()
-      state: //div[@class="fpBlk fpTab"]//text()
-      seller_rating:  //div[@class="fpBlk fpTab"]//text()
-      link_product_home_page: //a[@class="o-card__link flow--xs"]
 
 
     patterns:
@@ -48,12 +41,11 @@ sites:
       seller_rating: 0
   
     tags_get_from_seller_listing:
-      names:
-        - seller_price
-        - seller_name
-        - shipping_rate_price
-        - expedition_country
-        - sales_realized
-        - seller_rating
-        - state
-      commom_tag: //div[@class="fpBlk fpTab"]//text()
+      seller_price: //div[@class="fpBlk fpTab"]//text()
+      seller_name: //div[@class="fpBlk fpTab"]//text()
+      shipping_rate_price: //div[@class="fpBlk fpTab"]//text()
+      expedition_country: //div[@class="fpBlk fpTab"]//text()
+      sales_realized: //div[@class="fpBlk fpTab"]//text()
+      seller_rating:  //div[@class="fpBlk fpTab"]//text()
+      state: //div[@class="fpBlk fpTab"]//text()
+      #commom_tag: //div[@class="fpBlk fpTab"]//text()
