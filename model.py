@@ -11,7 +11,9 @@ import bs4
 from utils.configs import get_config
 from utils.poppup import popupmsg
 
-path =  "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver" #"/home/user/Téléchargements/chromedriver_linux64/chromedriver"
+# path =  "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver"
+path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver"
+
 
 # /usr/bin/google-chrome --remote-debugging-port=2023 --user-data-dir="/home/mtd/Bureau/Ressistance/Bot/chromedriver_linux64"
 class Driver:
@@ -24,6 +26,7 @@ class Driver:
         self.service = Service(executable_path=self.chromedriver_path)
         self.driver = webdriver.Chrome(service=self.service, options=self.options)
 
+
 class Website:
     def __init__(
         self,
@@ -34,7 +37,7 @@ class Website:
         tags,
         patterns,
         groups,
-        tags_get_from_seller_listing
+        tags_get_from_seller_listing,
     ):
         self.name = name
         self.url = url
@@ -57,6 +60,8 @@ class Content:
 
 def get_info_site(site: str = "cdiscount", device: str = "desktop"):
     return get_config(device)["sites"].get(site)
+
+
 class Crawler:
     def __init__(self, website_info):
         self.website_info = website_info
@@ -66,7 +71,7 @@ class Crawler:
         self.driver = Driver()
 
     def get_page(self, url):
-        #driver = Driver()
+        # driver = Driver()
         try:
             self.driver.driver.get(url)
         except Exception as e:
@@ -84,7 +89,7 @@ class Crawler:
         print(f"We wait for {random_delay} 's before continue")
         time.sleep(random_delay)
 
-    def safe_get(self, page_obj: bs4.BeautifulSoup, selector:str) -> str:
+    def safe_get(self, page_obj: bs4.BeautifulSoup, selector: str) -> str:
         selected_elems = etree.HTML(str(page_obj)).xpath(selector)
         if selected_elems is not None and len(selected_elems) > 0:
             try:
@@ -93,7 +98,9 @@ class Crawler:
                 return "\n".join([elem for elem in selected_elems])
         return ""
 
-    def get_safe_pattern(self, selected_tag: str, pattern: str="(.*)", group: int= 0) -> str:
+    def get_safe_pattern(
+        self, selected_tag: str, pattern: str = "(.*)", group: int = 0
+    ) -> str:
         """_summary_
 
         Args:
@@ -107,9 +114,12 @@ class Crawler:
         pattern = pattern or "(.*)"
         group = group or 0
         try:
-            elems = [ captured_elem[group].strip() for captured_elem in re.findall(pattern,selected_tag)]
-        except IndexError :
-            elems = re.findall(pattern,selected_tag)[group]
+            elems = [
+                captured_elem[group].strip()
+                for captured_elem in re.findall(pattern, selected_tag)
+            ]
+        except IndexError:
+            elems = re.findall(pattern, selected_tag)[group]
         if len(elems) < 2:
             return "".join(elems)
         return elems
@@ -124,7 +134,7 @@ class Crawler:
             is_captchat_found = False
         return is_captchat_found
 
-    def parse_seller_listing_page(self, bs:bs4.BeautifulSoup)-> List[dict]: 
+    def parse_seller_listing_page(self, bs: bs4.BeautifulSoup) -> List[dict]:
         """_summary_
 
         Args:
@@ -133,9 +143,26 @@ class Crawler:
         Returns:
             List[dict]: _description_
         """
-        selected_elems = self.safe_get(bs, self.website_info.tags_get_from_seller_listing.get("commom_tag"))
-        tag_from_listing_page_raw_data = {tag: self.get_safe_pattern(selected_elems, self.website_info.patterns.get(tag), self.website_info.groups.get(tag)) for tag in self.website_info.tags_get_from_seller_listing.get("names")}
-        offers = [{tag: tag_from_listing_page_raw_data[tag][seller_iterator] for tag in tag_from_listing_page_raw_data.keys()} for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))]
+        selected_elems = self.safe_get(
+            bs, self.website_info.tags_get_from_seller_listing.get("commom_tag")
+        )
+        tag_from_listing_page_raw_data = {
+            tag: self.get_safe_pattern(
+                selected_elems,
+                self.website_info.patterns.get(tag),
+                self.website_info.groups.get(tag),
+            )
+            for tag in self.website_info.tags_get_from_seller_listing.get("names")
+        }
+        offers = [
+            {
+                tag: tag_from_listing_page_raw_data[tag][seller_iterator]
+                for tag in tag_from_listing_page_raw_data.keys()
+            }
+            for seller_iterator in range(
+                len(tag_from_listing_page_raw_data["seller_name"])
+            )
+        ]
         return offers
 
     def parse(self, url):
@@ -157,6 +184,3 @@ class Crawler:
                 if not self.website_info.absoluteUrl:
                     targetPage = "{}{}".format(self.website_info.url, targetPage)
                 # self.parse(targetPage)
-
-
-
