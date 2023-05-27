@@ -1,7 +1,7 @@
 import time
 import re
 from typing import List
-from model import Website, Crawler, Driver, get_info_site
+from model import Website, Crawler, Driver, get_info_site, Content
 from lxml import etree
 
 import bs4
@@ -36,26 +36,11 @@ cdiscount = Website(
 # tmp_other_seller = crawler.get_page(url_other_seller)
 # dom = etree.HTML(str(tmp))
 
-crawler = Crawler(cdiscount)
-url_home_page = "https://www.cdiscount.com/"
-tmp_home_page = crawler.get_page(url_home_page)
-
-all_link_home_page = []
-raw_link = etree.HTML(str(tmp_home_page)).xpath('//a[@class="o-card__link flow--xs"]')
-for ele in raw_link:
-    all_link_home_page.append(ele.values()[1])
-
-link_find_no_visited = set(all_link_home_page)
-link_find_visited = set()
-link_find_seller_no_visited = set()
-link_find_no_visited = set()
-
 "-------------------------------------------------------------------"
 
 
 def safe_get(page_obj: bs4.BeautifulSoup, selector: str) -> str:
     selected_elems = etree.HTML(str(page_obj)).xpath(selector)
-    print("ici", selected_elems)
     if selected_elems is not None and len(selected_elems) > 0:
         try:
             return "\n".join([elem.text.strip() for elem in selected_elems])
@@ -64,56 +49,14 @@ def safe_get(page_obj: bs4.BeautifulSoup, selector: str) -> str:
     return ""
 
 
+# Traitement des cas sans ean comme les produits pas encore en ventes mais bientôt en ventes.
+# Traitement des as vendus par cdiscount
+# script dans la page produit (//script[@type="application/ld+json"])
 # selected_elems = etree.HTML(str(tmp_other_seller)).xpath('//div[@class="fpBlk fpTab"]//text()')
 # selected_elems = etree.HTML(str(tmp)).xpath("//*[contains(text(),'pr_ean')]")
 # r = crawler.safe_get(tmp_other_seller,'//div[@class="fpBlk fpTab"]//text()')
 # get_link_home_page = crawler.safe_get(tmp_home_page,'//a[@class="o-card__link flow--xs"]')
 
-"-------------------------------------------------------------------"
-
-for link in link_find_no_visited:
-    page = link
-    break
-
-url_page_from_home_page = page
-tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
-
-dict_tag = {
-    "title": '//h1[@itemprop="name"] ',
-    "ean": "//*[contains(text(),'pr_ean')]",
-    "seller_price_page": '//span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()',
-    "seller": '//a[@class="fpSellerName"] ',
-    "seller_cdiscount": '//div[@id="fpSellBy"]//span[@class="logoCDS"]',
-    "captcha": '//div[contains(@class, "white-square")][contains(@p, "")]',
-    "seller_listing": '//p[@class="fpOtherOffer"]//@href',
-    "product_image": '//ul[@class="jsFpZoomPic smallPic"]//@src',
-    "product_rating": '//div[@class="topMainRating"]//span[@itemprop="ratingValue"]//text()',
-    "description": '//div[@id="fpBulletPointReadMore"]//text()',
-    "offer_count": '//p[@class="fpOtherOffer"]',
-    "seller_price": '//div[@class="fpBlk fpTab"]//text()',
-    "seller_name": '//div[@class="fpBlk fpTab"]//text()',
-    "shipping_rate_price": '//div[@class="fpBlk fpTab"]//text()',
-    "expedition_country": '//div[@class="fpBlk fpTab"]//text()',
-    "sales_realized": '//div[@class="fpBlk fpTab"]//text()',
-    "state": '//div[@class="fpBlk fpTab"]//text()',
-    "seller_rating": '//div[@class="fpBlk fpTab"]//text()',
-    "link_product_home_page": '//a[@class="o-card__link flow--xs"]',
-}
-
-raw_all_info_page_from_home_page = {}
-for name, tag in dict_tag.items():
-    try:
-        crawler.safe_get(tmp_page_from_home_page, tag)
-        raw_all_info_page_from_home_page[name] = crawler.safe_get(
-            tmp_page_from_home_page, tag
-        )
-    except Exception:
-        pass
-
-all_info_page_from_home_page = {}
-for label, info in raw_all_info_page_from_home_page.items():
-    if info != "":
-        all_info_page_from_home_page[label] = info
 
 "-------------------------------------------------------------------"
 
@@ -145,8 +88,8 @@ def parse_seller_listing_page(selected_elems: str) -> List[dict]:
     return offers
 
 
-parse_seller_listing_page(tmp_page_from_home_page)
-tmp3 = crawler.parse_seller_listing_page(tmp_other_seller)
+# parse_seller_listing_page(tmp_page_from_home_page)
+# tmp3 = crawler.parse_seller_listing_page(tmp_other_seller)
 
 "-------------------------------------------------------------------"
 
@@ -196,19 +139,80 @@ groups = {
     "seller_rating": 0,
 }
 
-all_info_page_from_home_page
-
-for label_tag, raw_tag in all_info_page_from_home_page.items():
-    for label_regex, regex in patterns.items():
-        if label_tag == label_regex:
-            info_extracted = get_safe_pattern(raw_tag, regex, groups[label_regex])
-            print("ici", label_tag, info_extracted)
-            all_info_page_from_home_page[label_tag] = info_extracted
-
 "-------------------------------------------------------------------"
 
+crawler = Crawler(cdiscount)
+url_home_page = "https://www.cdiscount.com/"
+tmp_home_page = crawler.get_page(url_home_page)
 
-def parse_seller_listing_page(self, bs: str) -> List[dict]:
+all_link_home_page = []
+raw_link = etree.HTML(str(tmp_home_page)).xpath('//a[@class="o-card__link flow--xs"]')
+for ele in raw_link:
+    all_link_home_page.append(ele.values()[1])
+
+link_find_no_visited = [*set(all_link_home_page)]
+link_find_visited = []
+link_page_seller_no_visited = []
+link_page_seller_no_visited = []
+
+for link in link_find_no_visited:
+    page = link
+    break
+page = link_find_no_visited[1]
+page
+url_page_from_home_page = page
+tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
+
+raw_all_info_page_from_home_page = {}
+for name, tag in info_site["tags"].items():
+    try:
+        crawler.safe_get(tmp_page_from_home_page, tag)
+        raw_all_info_page_from_home_page[name] = crawler.safe_get(
+            tmp_page_from_home_page, tag
+        )
+    except Exception:
+        pass
+
+all_info_page_from_home_page = {}
+for label, info in raw_all_info_page_from_home_page.items():
+    if info != "":
+        all_info_page_from_home_page[label] = info
+
+cp = all_info_page_from_home_page.copy()
+patterns
+info_site["patterns"]
+for label_tag, raw_tag in cp.items():
+    for label_regex, regex in patterns.items():
+        if label_tag == label_regex:
+            info_extracted = get_safe_pattern(
+                raw_tag, regex, groups[label_regex]
+            ).replace("\n", "")
+            cp[label_tag] = info_extracted
+cp
+
+info_product = {cp["ean"]: cp}
+link_find_visited.append(url_page_from_home_page)
+url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
+info_product_other_seller = {}
+
+"""
+try:
+    url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
+    print("ok")
+except Exception:
+    link_find_no_visited.index(url_page_from_home_page)
+    link_find_no_visited = link_find_no_visited.pop(1)
+    link_find_no_visited.index(url_page_from_home_page)
+    pass
+"""
+
+tmp_all_other_seller_page = crawler.get_page(url_other_product_from_page_product)
+bs_product_other_seller = crawler.safe_get(
+    tmp_all_other_seller_page, '//div[@class="fpBlk fpTab"]//text()'
+)
+
+
+def parse_seller_listing_page(bs: str) -> List[dict]:
     """_summary_
 
     Args:
@@ -219,13 +223,14 @@ def parse_seller_listing_page(self, bs: str) -> List[dict]:
     """
 
     tag_from_listing_page_raw_data = {
-        tag: self.get_safe_pattern(
-            r,
-            self.website_info["patterns"].get(tag),
-            self.website_info["groups"].get(tag),
+        tag: get_safe_pattern(
+            bs,
+            patterns.get(tag),
+            groups.get(tag),
         )
-        for tag in self.website_info["tags_get_from_seller_listing"]
+        for tag in info_site["tags_get_from_seller_listing"]
     }
+    print(tag_from_listing_page_raw_data)
     offers = [
         {
             tag: tag_from_listing_page_raw_data[tag][seller_iterator]
@@ -234,6 +239,9 @@ def parse_seller_listing_page(self, bs: str) -> List[dict]:
         for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))
     ]
     return offers
+
+
+parse_seller_listing_page(bs_product_other_seller)
 
 
 "-------------------------------------------------------------------"
@@ -275,8 +283,6 @@ b = {
         ],
     },
 }
-
-c = {"shop_name": "ELIAZON", "best_offer": {"blabla"}}
 
 
 def is_absolute_url():
