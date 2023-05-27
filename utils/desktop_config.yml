@@ -10,7 +10,7 @@ sites:
     tags:
       title: //h1[@itemprop="name"] 
       ean: //*[contains(text(),'pr_ean')]
-      price: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
+      seller_price: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
       seller: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
       captcha: //div[contains(@class, "white-square")][contains(@p, "")]
       seller_listing: //p[@class="fpOtherOffer"]//@href # //p[@class="fpOtherOffer"]/a/@href
@@ -24,6 +24,7 @@ sites:
       sales_realized: //div[@class="fpBlk fpTab"]//text()
       state: //div[@class="fpBlk fpTab"]//text()
       seller_rating:  //div[@class="fpBlk fpTab"]//text()
+      link_product_home_page: //a[@class="o-card__link flow--xs"]
 
 
     patterns:
