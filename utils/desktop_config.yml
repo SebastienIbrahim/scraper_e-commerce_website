@@ -12,11 +12,12 @@ sites:
       title: //h1[@itemprop="name"] 
       ean: //*[contains(text(),'pr_ean')]
       seller_price: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
-      seller: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
+      seller_name: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
       captcha: //div[contains(@class, "white-square")][contains(@p, "")]
       seller_listing: //p[@class="fpOtherOffer"]//@href # //p[@class="fpOtherOffer"]/a/@href
       product_image: //ul[@class="jsFpZoomPic smallPic"]//@src
       description: //div[@id="fpBulletPointReadMore"]
+      page_seller : //a[@class="fpSellerName"]//@href
       offer_count: //p[@class="fpOtherOffer"]
 
 
@@ -32,7 +33,7 @@ sites:
       seller_rating: Cdiscount|(Évaluation(.*)\n(.*))
 
     groups:
-      ean: 2
+      ean: 1
       seller_price: 0
       seller_name: 0
       shipping_rate_price: 0
@@ -48,4 +49,5 @@ sites:
       sales_realized: //div[@class="fpBlk fpTab"]//text()
       seller_rating:  //div[@class="fpBlk fpTab"]//text()
       state: //div[@class="fpBlk fpTab"]//text()
+      url_seller : //a[@class="slrName"]//@href
       #commom_tag: //div[@class="fpBlk fpTab"]//text()
