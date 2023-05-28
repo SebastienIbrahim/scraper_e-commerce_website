@@ -49,5 +49,4 @@ sites:
       sales_realized: //div[@class="fpBlk fpTab"]//text()
       seller_rating:  //div[@class="fpBlk fpTab"]//text()
       state: //div[@class="fpBlk fpTab"]//text()
-      url_seller : //a[@class="slrName"]//@href
       #commom_tag: //div[@class="fpBlk fpTab"]//text()
