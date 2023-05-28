@@ -131,14 +131,15 @@ for ele in raw_link:
     all_link_home_page.append(ele.values()[1])
 
 link_find_no_visited = [*set(all_link_home_page)]
-link_find_visited = []
-link_page_seller_no_visited = []
-link_page_seller_no_visited = []
+link_find_visited = set()
+link_page_seller_no_visited = set()
+link_page_seller_visited = set()
+info_product = {}
 
 for link in link_find_no_visited:
     page = link
     break
-page = link_find_no_visited[10]
+page = link_find_no_visited[1]
 page
 url_page_from_home_page = page
 tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
@@ -172,19 +173,16 @@ for label_tag, raw_tag in cp.items():
             cp[label_tag] = info_extracted
 cp
 
-link_find_visited.append(cp["ean"])
-url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
-info_product_other_seller = {}
-
+link_find_visited.add(cp["ean"])
 
 try:
     url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
 except Exception:
+    info_product[cp["ean"]] = cp
     index = link_find_no_visited.index(url_page_from_home_page)
     link_find_no_visited = link_find_no_visited.pop(index)
     link_page_seller_no_visited.append(cp["page_seller"])
     pass
-
 
 tmp_all_other_seller_page = crawler.get_page(url_other_product_from_page_product)
 bs_product_other_seller = crawler.safe_get(
@@ -205,12 +203,17 @@ for ele in list_all_info_other_seller:
             ele["url_relative_seller"] = url
 
 cp["info_other_seller"] = list_all_info_other_seller
-info_product = {cp["ean"]: cp}
+info_product[cp["ean"]] = cp
+
+if cp["page_seller"] in link_page_seller_visited:
+    pass
+else:
+    link_page_seller_no_visited.add(cp["page_seller"])
 
 link_find_no_visited = [*set(all_link_home_page)]
 link_find_visited = []
 link_page_seller_no_visited = []
-link_page_seller_no_visited = []
+link_page_seller_visited = []
 
 "-------------------------------------------------------------------"
 
