@@ -61,7 +61,7 @@ def safe_get(page_obj: bs4.BeautifulSoup, selector: str) -> str:
 "-------------------------------------------------------------------"
 
 
-def parse_seller_listing_page(selected_elems: str) -> List[dict]:
+def parse_seller_listing_page(bs: str) -> List[dict]:
     """_summary_
 
     Args:
@@ -70,17 +70,18 @@ def parse_seller_listing_page(selected_elems: str) -> List[dict]:
     Returns:
         List[dict]: _description_
     """
+
     tag_from_listing_page_raw_data = {
         tag: get_safe_pattern(
-            selected_elems,
-            self.website_info["patterns"].get(tag),
-            self.website_info["groups"].get(tag),
+            bs,
+            info_site["patterns"].get(tag),
+            info_site["groups"].get(tag),
         )
-        for tag in self.website_info["tags_get_from_seller_listing"]
+        for tag in info_site["tags_get_from_seller_listing"]
     }
     offers = [
         {
-            tag: tag_from_listing_page_raw_data[tag][seller_iterator]
+            tag: tag_from_listing_page_raw_data[tag][seller_iterator].replace("\n", "")
             for tag in tag_from_listing_page_raw_data.keys()
         }
         for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))
@@ -118,27 +119,6 @@ def get_safe_pattern(selected_tag: str, pattern: str = "(.*)", group: int = 0) -
     return elems
 
 
-patterns = {
-    "ean": '(\["pr_ean"\]=).(\d+)',
-    "seller_price_page": "(\d+\n€\d+)(.*)",
-    "seller_name": "(.*\n.)(\n.*)(\d+\n€\d+)",
-    "shipping_rate_price": "(.*\n.*)(?=Disponibilité)(.*)",
-    "expedition_country": "(Expédié par :)\n(.*)",
-    "sales_realized": "Cdiscount|Ventes réalisées :(\n.*\d+)(.*)",
-    "state": "(.*\n)(.*\n.*)(?=Disponibilité)",
-    "seller_rating": "Cdiscount|(Évaluation(.*)\n(.*))",
-}
-
-groups = {
-    "ean": 1,
-    "seller_price_page": 0,
-    "seller_name": 0,
-    "shipping_rate_price": 0,
-    "expedition_country": 1,
-    "sales_realized": 0,
-    "seller_rating": 0,
-}
-
 "-------------------------------------------------------------------"
 
 crawler = Crawler(cdiscount)
@@ -158,10 +138,11 @@ link_page_seller_no_visited = []
 for link in link_find_no_visited:
     page = link
     break
-page = link_find_no_visited[1]
+page = link_find_no_visited[10]
 page
 url_page_from_home_page = page
 tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
+crawler.safe_get(tmp_page_from_home_page, '//a[@class="fpSellerName"]')
 
 raw_all_info_page_from_home_page = {}
 for name, tag in info_site["tags"].items():
@@ -177,34 +158,33 @@ all_info_page_from_home_page = {}
 for label, info in raw_all_info_page_from_home_page.items():
     if info != "":
         all_info_page_from_home_page[label] = info
+    if (info == "") and (label == "seller_name"):
+        all_info_page_from_home_page[label] = "Cdiscount"
+
 
 cp = all_info_page_from_home_page.copy()
-patterns
-info_site["patterns"]
 for label_tag, raw_tag in cp.items():
-    for label_regex, regex in patterns.items():
+    for label_regex, regex in info_site["patterns"].items():
         if label_tag == label_regex:
             info_extracted = get_safe_pattern(
-                raw_tag, regex, groups[label_regex]
+                raw_tag, regex, info_site["groups"][label_regex]
             ).replace("\n", "")
             cp[label_tag] = info_extracted
 cp
 
-info_product = {cp["ean"]: cp}
-link_find_visited.append(url_page_from_home_page)
+link_find_visited.append(cp["ean"])
 url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
 info_product_other_seller = {}
 
-"""
+
 try:
     url_other_product_from_page_product = url_home_page + cp["seller_listing"][1:]
-    print("ok")
 except Exception:
-    link_find_no_visited.index(url_page_from_home_page)
-    link_find_no_visited = link_find_no_visited.pop(1)
-    link_find_no_visited.index(url_page_from_home_page)
+    index = link_find_no_visited.index(url_page_from_home_page)
+    link_find_no_visited = link_find_no_visited.pop(index)
+    link_page_seller_no_visited.append(cp["page_seller"])
     pass
-"""
+
 
 tmp_all_other_seller_page = crawler.get_page(url_other_product_from_page_product)
 bs_product_other_seller = crawler.safe_get(
@@ -212,37 +192,25 @@ bs_product_other_seller = crawler.safe_get(
 )
 
 
-def parse_seller_listing_page(bs: str) -> List[dict]:
-    """_summary_
+list_all_info_other_seller = parse_seller_listing_page(bs_product_other_seller)
 
-    Args:
-        bs (str): _description_
+url_other_seller = crawler.safe_get(
+    tmp_all_other_seller_page, '//a[@class="slrName"]//@href'
+).split("\n")
+url_other_seller
 
-    Returns:
-        List[dict]: _description_
-    """
+for ele in list_all_info_other_seller:
+    for url in url_other_seller:
+        if ele["seller_name"] in url:
+            ele["url_relative_seller"] = url
 
-    tag_from_listing_page_raw_data = {
-        tag: get_safe_pattern(
-            bs,
-            patterns.get(tag),
-            groups.get(tag),
-        )
-        for tag in info_site["tags_get_from_seller_listing"]
-    }
-    print(tag_from_listing_page_raw_data)
-    offers = [
-        {
-            tag: tag_from_listing_page_raw_data[tag][seller_iterator]
-            for tag in tag_from_listing_page_raw_data.keys()
-        }
-        for seller_iterator in range(len(tag_from_listing_page_raw_data["seller_name"]))
-    ]
-    return offers
+cp["info_other_seller"] = list_all_info_other_seller
+info_product = {cp["ean"]: cp}
 
-
-parse_seller_listing_page(bs_product_other_seller)
-
+link_find_no_visited = [*set(all_link_home_page)]
+link_find_visited = []
+link_page_seller_no_visited = []
+link_page_seller_no_visited = []
 
 "-------------------------------------------------------------------"
 
