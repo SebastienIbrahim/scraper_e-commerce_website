@@ -8,7 +8,6 @@ import bs4
 
 info_site = get_info_site(site="cdiscount", device="desktop")
 
-
 cdiscount = Website(
     name=info_site.get("name"),
     url=info_site.get("url"),
@@ -129,24 +128,11 @@ tmp_home_page = crawler.get_page(url_home_page)
 def list_url_from_home_page(tmp_home_page):
     all_link_home_page = []
     raw_link = etree.HTML(str(tmp_home_page)).xpath(
-        '//a[@class="o-card__link flow--xs"]'
+        '//a[@class="o-card__link flow--xs"]'  # à voir
     )
     for ele in raw_link:
         all_link_home_page.append(ele.values()[1])
     return all_link_home_page
-
-
-def extract_info_page_from_home_page(info_site, crawler, tmp_page_from_home_page):
-    raw_all_info_page_from_home_page = raw_info_extracted(
-        info_site, crawler, tmp_page_from_home_page
-    )
-    all_info_page_from_home_page = {}
-    for label, info in raw_all_info_page_from_home_page.items():
-        if info != "":
-            all_info_page_from_home_page[label] = info
-        if (info == "") and (label == "seller_name"):
-            all_info_page_from_home_page[label] = "Cdiscount"
-    return all_info_page_from_home_page
 
 
 def raw_info_extracted(info_site, crawler, tmp_page_from_home_page):
@@ -160,6 +146,19 @@ def raw_info_extracted(info_site, crawler, tmp_page_from_home_page):
         except Exception:
             pass
     return raw_all_info_page_from_home_page
+
+
+def extract_info_page_from_home_page(info_site, crawler, tmp_page_from_home_page):
+    raw_all_info_page_from_home_page = raw_info_extracted(
+        info_site, crawler, tmp_page_from_home_page
+    )
+    all_info_page_from_home_page = {}
+    for label, info in raw_all_info_page_from_home_page.items():
+        if info != "":
+            all_info_page_from_home_page[label] = info
+        if (info == "") and (label == "seller_name"):
+            all_info_page_from_home_page[label] = "Cdiscount"
+    return all_info_page_from_home_page
 
 
 def formatting_info_page_from_home_page(
@@ -193,12 +192,13 @@ def check_if_relative_url_other_seller_was_visited(
 
 all_link_home_page = list_url_from_home_page(tmp_home_page)
 link_find_no_visited = [*set(all_link_home_page)]
-link_find_visited = set()
+link_find_visited_ean = set()
+link_find_visited_url = set()
 link_page_seller_no_visited = set()
 link_page_seller_visited = set()
 info_products = {}
 
-for link in link_find_no_visited[:]:
+for link in link_find_no_visited[:2]:
     url_page_from_home_page = link
     tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
     all_info_raw_product_from_home_page = extract_info_page_from_home_page(
@@ -207,7 +207,8 @@ for link in link_find_no_visited[:]:
     info_page_formatted = formatting_info_page_from_home_page(
         info_site, get_safe_pattern, all_info_raw_product_from_home_page
     )
-    link_find_visited.add(info_page_formatted["ean"])
+    link_find_visited_ean.add(info_page_formatted["ean"])
+    link_find_visited_url.add(url_page_from_home_page)
     index = link_find_no_visited.index(url_page_from_home_page)
     link_find_no_visited.pop(index)
     try:
@@ -239,6 +240,37 @@ for link in link_find_no_visited[:]:
                 link_page_seller_no_visited.add(info_page_formatted["page_seller"])
         except Exception:
             pass
+
+
+def extract_url_top_product_from_seller_page(list_raw_url_product_from_seller_page):
+    list_url_top_product_from_seller_page = []
+    for ele in list_raw_url_product_from_seller_page:
+        if ("https" in ele) and ("f-" in ele):
+            list_url_top_product_from_seller_page.append(ele)
+        else:
+            pass
+    return list_url_top_product_from_seller_page
+
+
+cp_link_page_seller_no_visited = link_page_seller_no_visited.copy()
+
+for page_seller in link_page_seller_no_visited:
+    url_seller_page = url_home_page + page_seller
+    tmp_page_seller = crawler.get_page(url_seller_page)
+
+    list_raw_url_product_from_seller_page = etree.HTML(str(tmp_page_seller)).xpath(
+        info_site["tags_page_seller"]["url_page_seller"]
+    )
+
+    list_url_top_product_from_seller_page = extract_url_top_product_from_seller_page(
+        list_raw_url_product_from_seller_page
+    )
+    link_page_seller_visited.add(url_seller_page)
+    cp_link_page_seller_no_visited.remove(page_seller)
+    for url_product in list_url_top_product_from_seller_page:
+        if url_product not in link_find_visited_url:
+            link_find_no_visited.append(url_product)
+link_page_seller_no_visited = cp_link_page_seller_no_visited
 
 "-------------------------------------------------------------------"
 
