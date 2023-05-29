@@ -50,3 +50,6 @@ sites:
       seller_rating:  //div[@class="fpBlk fpTab"]//text()
       state: //div[@class="fpBlk fpTab"]//text()
       #commom_tag: //div[@class="fpBlk fpTab"]//text()
+      
+    tags_page_seller:
+      url_page_seller : "//li[@data-sku]//@href"
