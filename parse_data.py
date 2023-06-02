@@ -1,6 +1,8 @@
 import time
 import re
 from typing import List
+import json
+import numpy as np
 from model import Website, Crawler, Driver, get_info_site, Content
 from lxml import etree
 
@@ -127,9 +129,7 @@ tmp_home_page = crawler.get_page(url_home_page)
 
 def list_url_from_home_page(tmp_home_page):
     all_link_home_page = []
-    raw_link = etree.HTML(str(tmp_home_page)).xpath(
-        '//a[@class="o-card__link flow--xs"]'  # à voir
-    )
+    raw_link = etree.HTML(str(tmp_home_page)).xpath(info_site["link_product_home_page"])
     for ele in raw_link:
         all_link_home_page.append(ele.values()[1])
     return all_link_home_page
@@ -190,6 +190,59 @@ def check_if_relative_url_other_seller_was_visited(
             link_page_seller_no_visited.add(relative_url)
 
 
+def extract_url_top_product_from_seller_page(list_raw_url_product_from_seller_page):
+    list_url_top_product_from_seller_page = []
+    for ele in list_raw_url_product_from_seller_page:
+        if ("https" in ele) and ("f-" in ele):
+            list_url_top_product_from_seller_page.append(ele)
+        else:
+            pass
+    return list_url_top_product_from_seller_page
+
+
+def add_url_top_product(
+    link_find_no_visited, link_find_visited_url, list_url_top_product_from_seller_page
+):
+    for url_product in list_url_top_product_from_seller_page:
+        if url_product not in link_find_visited_url:
+            link_find_no_visited.append(url_product)
+
+
+def extract_top_product_from_url_seller(
+    info_site,
+    crawler,
+    url_home_page,
+    extract_url_top_product_from_seller_page,
+    add_url_top_product,
+    link_find_no_visited,
+    link_find_visited_url,
+    link_page_seller_no_visited,
+    link_page_seller_visited,
+):
+    cp_link_page_seller_no_visited = link_page_seller_no_visited.copy()
+    for page_seller in link_page_seller_no_visited:
+        url_seller_page = url_home_page + page_seller
+        tmp_page_seller = crawler.get_page(url_seller_page)
+        list_raw_url_product_from_seller_page = etree.HTML(str(tmp_page_seller)).xpath(
+            info_site["tags_page_seller"]["url_page_seller"]
+        )
+
+        list_url_top_product_from_seller_page = (
+            extract_url_top_product_from_seller_page(
+                list_raw_url_product_from_seller_page
+            )
+        )
+        link_page_seller_visited.add(url_seller_page)
+        cp_link_page_seller_no_visited.remove(page_seller)
+        add_url_top_product(
+            link_find_no_visited,
+            link_find_visited_url,
+            list_url_top_product_from_seller_page,
+        )
+    link_page_seller_no_visited = cp_link_page_seller_no_visited
+    return link_page_seller_no_visited
+
+
 all_link_home_page = list_url_from_home_page(tmp_home_page)
 link_find_no_visited = [*set(all_link_home_page)]
 link_find_visited_ean = set()
@@ -198,7 +251,12 @@ link_page_seller_no_visited = set()
 link_page_seller_visited = set()
 info_products = {}
 
+start = time.time()
+t = np.random.uniform(0.1, 4)
+time.sleep(t)
+
 for link in link_find_no_visited[:2]:
+    time.sleep(t)
     url_page_from_home_page = link
     tmp_page_from_home_page = crawler.get_page(url_page_from_home_page)
     all_info_raw_product_from_home_page = extract_info_page_from_home_page(
@@ -231,7 +289,17 @@ for link in link_find_no_visited[:2]:
         )
         info_page_formatted["info_other_seller"] = list_all_info_other_seller
         info_products[info_page_formatted["ean"]] = info_page_formatted
-        info_page_formatted
+        link_page_seller_no_visited = extract_top_product_from_url_seller(
+            info_site,
+            crawler,
+            url_home_page,
+            extract_url_top_product_from_seller_page,
+            add_url_top_product,
+            link_find_no_visited,
+            link_find_visited_url,
+            link_page_seller_no_visited,
+            link_page_seller_visited,
+        )
     except Exception:
         info_products[info_page_formatted["ean"]] = info_page_formatted
         try:
@@ -240,37 +308,19 @@ for link in link_find_no_visited[:2]:
                 link_page_seller_no_visited.add(info_page_formatted["page_seller"])
         except Exception:
             pass
+end = time.time()
 
 
-def extract_url_top_product_from_seller_page(list_raw_url_product_from_seller_page):
-    list_url_top_product_from_seller_page = []
-    for ele in list_raw_url_product_from_seller_page:
-        if ("https" in ele) and ("f-" in ele):
-            list_url_top_product_from_seller_page.append(ele)
-        else:
-            pass
-    return list_url_top_product_from_seller_page
+start1 = time.time()
+json_object = json.dumps(info_products, indent=2)
+jsonFile = open("all_info_product.json", "w")
+jsonFile.write(json_object)
+jsonFile.close()
 
+end1 = time.time()
 
-cp_link_page_seller_no_visited = link_page_seller_no_visited.copy()
-
-for page_seller in link_page_seller_no_visited:
-    url_seller_page = url_home_page + page_seller
-    tmp_page_seller = crawler.get_page(url_seller_page)
-
-    list_raw_url_product_from_seller_page = etree.HTML(str(tmp_page_seller)).xpath(
-        info_site["tags_page_seller"]["url_page_seller"]
-    )
-
-    list_url_top_product_from_seller_page = extract_url_top_product_from_seller_page(
-        list_raw_url_product_from_seller_page
-    )
-    link_page_seller_visited.add(url_seller_page)
-    cp_link_page_seller_no_visited.remove(page_seller)
-    for url_product in list_url_top_product_from_seller_page:
-        if url_product not in link_find_visited_url:
-            link_find_no_visited.append(url_product)
-link_page_seller_no_visited = cp_link_page_seller_no_visited
+print((end - start) / 60)
+print(end1 - start1)
 
 "-------------------------------------------------------------------"
 
