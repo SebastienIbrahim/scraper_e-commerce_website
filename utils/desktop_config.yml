@@ -3,22 +3,24 @@ sites:
 # warning: tag is xpath expression, think to chage it you use BeautifulSoup selector
   cdiscount:
     name: Cdiscount
-    url: https://www.cdiscount.com
-    target_pattern: (\/f-\d+.*\.html)|(\/mpv.*-\d+.*\.html)
+    home_page: https://www.cdiscount.com
+    product_sheet_link_pattern: (https:\/\/www.cdiscount.com).*(\/f-\d+.*\.html) # (\/f-\d+.*\.html)|(\/mpv.*-\d+.*\.html)
+    shop_link_pattern: mpv-\d+.*\.html
     absolute_url: True
     link_product_home_page: //a[@class="o-card__link flow--xs"]
+    batch: 10
 
     tags:
-      title: //h1[@itemprop="name"] 
       ean: //*[contains(text(),'pr_ean')]
+      title: //h1[@itemprop="name"] 
       seller_price: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
-      seller_name: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
+      seller_name_fp: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
       captcha: //div[contains(@class, "white-square")][contains(@p, "")]
       seller_listing: //p[@class="fpOtherOffer"]//@href # //p[@class="fpOtherOffer"]/a/@href
       product_image: //ul[@class="jsFpZoomPic smallPic"]//@src
-      description: //div[@id="fpBulletPointReadMore"]
+      description: //div[@id="descContent"]//text() #//div[@id="fpBulletPointReadMore"]
       page_seller : //a[@class="fpSellerName"]//@href
-      offer_count: //p[@class="fpOtherOffer"]
+      offer_count:  //p[@class="fpOtherOffer"]//text()
 
 
     patterns:
@@ -31,6 +33,7 @@ sites:
       sales_realized: Cdiscount|Ventes réalisées :(\n.*\d+)(.*)
       state: (.*\n)(.*\n.*)(?=Disponibilité)
       seller_rating: Cdiscount|(Évaluation(.*)\n(.*))
+      product_image: (.*\.jpg|.*\.jpeg|.*\.png)
 
     groups:
       ean: 1
@@ -39,8 +42,10 @@ sites:
       shipping_rate_price: 0
       expedition_country: 1
       sales_realized: 0
+      state: 0
       seller_rating: 0
-  
+      product_image: NA
+      
     tags_get_from_seller_listing:
       seller_price: //div[@class="fpBlk fpTab"]//text()
       seller_name: //div[@class="fpBlk fpTab"]//text()

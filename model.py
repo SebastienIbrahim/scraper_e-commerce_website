@@ -1,5 +1,7 @@
 import random
 import re
+import queue
+from urllib.parse import urlparse
 import time
 from typing import List
 from lxml import etree
@@ -11,8 +13,8 @@ import bs4
 from utils.configs import get_config
 from utils.poppup import popupmsg
 
-# path =  "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver"
-path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver"
+path = "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver"
+# path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver"
 
 
 # /usr/bin/google-chrome --remote-debugging-port=2023 --user-data-dir="/home/mtd/Bureau/Ressistance/Bot/chromedriver_linux64"
@@ -31,22 +33,28 @@ class Website:
     def __init__(
         self,
         name,
-        url,
         target_pattern,
         absolute_url,
         tags,
         patterns,
         groups,
         tags_get_from_seller_listing,
+        batch,
+        home_page,
+        shop_link_pattern,
+        product_sheet_link_pattern,
     ):
         self.name = name
-        self.url = url
         self.target_pattern = target_pattern
         self.absolute_url = absolute_url
         self.tags = tags
         self.patterns = patterns
         self.groups = groups
         self.tags_get_from_seller_listing = tags_get_from_seller_listing
+        self.batch = batch
+        self.home_page = home_page
+        self.shop_link_pattern = shop_link_pattern
+        self.product_sheet_link_pattern = product_sheet_link_pattern
 
 
 class Content:
@@ -70,7 +78,7 @@ class Crawler:
         self.visited = set()
         self.driver = Driver()
 
-    def get_page(self, url):
+    def get_page(self, url) -> bs4.BeautifulSoup:
         # driver = Driver()
         try:
             self.driver.driver.get(url)
@@ -83,6 +91,56 @@ class Crawler:
             msg = f"We have been blocked by the website: {self.website_info.name} because of captcha"
             popupmsg(msg)
         return bs
+
+    def get_other_offers_page(self, other_offers_link: str) -> str:
+        other_offers_link_normalized = self._normalize_url(other_offers_link)
+        other_offers_page = self.get_page(other_offers_link_normalized)
+        self.wait(3, 8)
+        return other_offers_page
+
+    def get_all_shops_urls(
+        self,
+        bs_other_offers_page: bs4.BeautifulSoup,
+        shops_queue: queue.Queue,
+        visited_shops_urls: set,
+    ) -> List[str]:
+        """_summary_
+
+        Args:
+            bs_other_offers_page (str): _description_
+
+        Returns:
+            List[str]: _description_
+        """
+        all_shops_urls = []
+        try:
+            all_shops_urls = [
+                self._normalize_url(url.attrs["href"])
+                for url in bs_other_offers_page.find_all(
+                    "a", href=re.compile(self.website_info.shop_link_pattern)
+                )
+                if url.attrs["href"] is not None
+            ]
+        except Exception as e:
+            popupmsg(f"Error in get_all_shops_urls: {e}")
+        for shop in all_shops_urls:
+            if shop not in visited_shops_urls:
+                shops_queue.put(shop)
+
+    def get_all_product_sheet_links(self, bs: bs4.BeautifulSoup) -> List[str]:
+        """Get all from given bs object.
+
+        Args:
+            bs (str): _description_
+        """
+        product_sheet_links = [
+            link.attrs["href"]
+            for link in bs.find_all(
+                "a", href=re.compile(self.website_info.product_sheet_link_pattern)
+            )
+            if link.attrs["href"] is not None
+        ]
+        return product_sheet_links
 
     def wait(self, delay_min, delay_max):
         random_delay = random.randint(delay_min, delay_max)
@@ -115,11 +173,15 @@ class Crawler:
         group = group or 0
         try:
             elems = [
-                captured_elem[group].strip()
+                captured_elem[group].strip() if group != "NA" else captured_elem.strip()
                 for captured_elem in re.findall(pattern, selected_tag)
             ]
         except IndexError:
-            elems = re.findall(pattern, selected_tag)[group]
+            elems = (
+                re.findall(pattern, selected_tag)
+                if group < 0
+                else re.findall(pattern, selected_tag)[group]
+            )
         if len(elems) < 2:
             return "".join(elems)
         return elems
@@ -127,14 +189,35 @@ class Crawler:
     def check_captcha(self, page_obj):
         is_captchat_found = False
         try:
-            selected_elems = self.safe_get(page_obj, self.website_info.captcha)
+            selected_elems = self.safe_get(
+                page_obj, self.website_info.tags.get("captcha")
+            )
             is_captchat_found = selected_elems is not None and len(selected_elems) > 0
         # TODO: handle this exception explicitly
         except:
             is_captchat_found = False
         return is_captchat_found
 
-    def parse_seller_listing_page(self, bs: bs4.BeautifulSoup) -> List[dict]:
+    def parse_product_sheet_page(self, bs_product_sheet: str) -> dict:
+        """_summary_
+
+        Args:
+            bs_product_sheet (str): _description_
+
+        Returns:
+            dict: _description_
+        """
+        product_infos = {}
+        for tag_name, tag_attr in self.website_info.tags.items():
+            raw_elmt = self.safe_get(bs_product_sheet, tag_attr)
+            product_infos[tag_name] = self.get_safe_pattern(
+                raw_elmt,
+                self.website_info.patterns.get(tag_name),
+                self.website_info.groups.get(tag_name),
+            )
+        return product_infos
+
+    def parse_other_offers(self, bs: str) -> List[dict]:
         """_summary_
 
         Args:
@@ -143,16 +226,15 @@ class Crawler:
         Returns:
             List[dict]: _description_
         """
-        selected_elems = self.safe_get(
-            bs, self.website_info.tags_get_from_seller_listing.get("commom_tag")
-        )
         tag_from_listing_page_raw_data = {
             tag: self.get_safe_pattern(
-                selected_elems,
+                self.safe_get(
+                    bs, self.website_info.tags_get_from_seller_listing.get(tag)
+                ),
                 self.website_info.patterns.get(tag),
                 self.website_info.groups.get(tag),
             )
-            for tag in self.website_info.tags_get_from_seller_listing.get("names")
+            for tag in self.website_info.tags_get_from_seller_listing
         }
         offers = [
             {
@@ -165,22 +247,97 @@ class Crawler:
         ]
         return offers
 
-    def parse(self, url):
-        bs = self.get_page(url)
-        if bs is not None:
-            return bs
+    def parse_other_offers(self, bs: bs4.BeautifulSoup) -> List[dict]:
+        """_summary_
 
-    def crawl(self, url):
+        Args:
+            bs (str): _description_
+
+        Returns:
+            List[dict]: _description_
         """
-        Get pages from website home page
-        """
-        bs = self.get_page(url)
-        print(re.compile(self.website_info.target_pattern))
-        targetPages = bs.findAll("a", href=re.compile(self.website_info.target_pattern))
-        for targetPage in targetPages:
-            targetPage = targetPage.attrs["href"]
-            if targetPage not in self.visited:
-                self.visited.append(targetPage)
-                if not self.website_info.absoluteUrl:
-                    targetPage = "{}{}".format(self.website_info.url, targetPage)
-                # self.parse(targetPage)
+        tag_from_listing_page_raw_data = {
+            tag: self.get_safe_pattern(
+                self.safe_get(bs, self.website_info.tags_get_from_seller_listing[tag]),
+                self.website_info.patterns.get(tag),
+                self.website_info.groups.get(tag),
+            )
+            for tag in self.website_info.tags_get_from_seller_listing
+        }
+        offers = [
+            {
+                tag: tag_from_listing_page_raw_data[tag][seller_iterator]
+                for tag in tag_from_listing_page_raw_data.keys()
+            }
+            for seller_iterator in range(
+                len(tag_from_listing_page_raw_data["seller_name"])
+            )
+        ]
+        return offers
+
+    def _normalize_url(self, url: str) -> str:
+        home_page_url_parts = urlparse(self.website_info.home_page)
+        if not urlparse(url).netloc:
+            if not url.startswith("/"):
+                url = "/" + url
+            return (
+                "{}://{}".format(home_page_url_parts.scheme, home_page_url_parts.netloc)
+                + url
+            )
+        return url
+
+    def crawl(self, visited_shops_urls: set, shops_queue: queue.Queue):
+        raw_data = {}
+        home_page = self.get_page(self.website_info.home_page)
+        self.wait(3, 7)
+        product_sheet_links = self.get_all_product_sheet_links(home_page)
+        for product_sheet_link in product_sheet_links:
+            product_page = self.get_page(product_sheet_link)
+            self.wait(4, 8)
+            other_offers_link = self.safe_get(
+                product_page, self.website_info.tags.get("seller_listing")
+            )
+            if other_offers_link:
+                other_offers_page = self.get_other_offers_page(other_offers_link)
+                self.get_all_shops_urls(
+                    other_offers_page, shops_queue, visited_shops_urls
+                )
+                while not shops_queue.empty():
+                    shop_infos = {}
+                    shop_link = shops_queue.get()
+                    print(f"Seller page to preprocessing: {shop_link} ...")
+                    if shop_link not in visited_shops_urls:
+                        shop_page = self.get_page(shop_link)
+                        self.wait(3, 8)
+                        # Get top products from shop page 1
+                        top_product_page_1_links = self.get_all_product_sheet_links(
+                            shop_page
+                        )
+                        for i, product_link in enumerate(top_product_page_1_links):
+                            product_page = self.get_page(product_link)
+                            self.wait(4, 8)
+                            self.get_all_shops_urls(
+                                product_page, shops_queue, visited_shops_urls
+                            )
+                            product_infos = self.parse_product_sheet_page(product_page)
+                            other_offers_link = self.safe_get(
+                                product_page,
+                                self.website_info.tags.get("seller_listing"),
+                            )
+                            if other_offers_link:
+                                other_offers_page = self.get_other_offers_page(
+                                    other_offers_link
+                                )
+                                self.get_all_shops_urls(
+                                    other_offers_page, shops_queue, visited_shops_urls
+                                )
+                                other_offers = self.parse_other_offers(
+                                    other_offers_page
+                                )
+                                product_infos["offers"] = other_offers
+                            shop_infos[f"product_{i+1}"] = product_infos
+                        visited_shops_urls.add(shop_link)
+                    raw_data.update(shop_infos)
+                    if len(raw_data) % self.website_info.batch == 0:
+                        # TODO: tranform raw_data in json format to dataframe and save to parquet
+                        pass
