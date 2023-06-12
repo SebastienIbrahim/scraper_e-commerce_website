@@ -5,13 +5,16 @@ from urllib.parse import urlparse
 import time
 from typing import List
 from lxml import etree
+import pandas as pd
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import bs4
+import json
 from utils.configs import get_config
 from utils.poppup import popupmsg
+
 
 path = "/home/mtd/Bureau/Ressistance/Projets/e-com-scrape/chromedriver_linux64/chromedriver"
 # path = "/home/user/Téléchargements/chromedriver_linux64/chromedriver"
@@ -340,4 +343,13 @@ class Crawler:
                     raw_data.update(shop_infos)
                     if len(raw_data) % self.website_info.batch == 0:
                         # TODO: tranform raw_data in json format to dataframe and save to parquet
+                        json_object = json.dumps(raw_data, indent=3)
+                        jsonFile = open("all_top_product_shop.json", "w")
+                        jsonFile.write(json_object)
+                        jsonFile.close()
+                        df = pd.read_json("all_top_product_shop.json").to_parquet(
+                            "try_to_parquet.parquet", engine="fastparquet"
+                        )
+                        del raw_data
+                    else:
                         pass
