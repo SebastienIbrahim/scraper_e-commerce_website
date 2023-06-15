@@ -34,6 +34,7 @@ sites:
       state: (.*\n)(.*\n.*)(?=Disponibilité)
       seller_rating: Cdiscount|(Évaluation(.*)\n(.*))
       product_image: (.*\.jpg|.*\.jpeg|.*\.png)
+      description: (?m)^(?!/\*<!\[CDATA\[.*\]\]>.*\*/$).+$
 
     groups:
       ean: 1
@@ -45,6 +46,7 @@ sites:
       state: 0
       seller_rating: 0
       product_image: NA
+      description: NA
       
     tags_get_from_seller_listing:
       seller_price: //div[@class="fpBlk fpTab"]//text()

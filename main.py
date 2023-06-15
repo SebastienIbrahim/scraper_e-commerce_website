@@ -17,9 +17,6 @@ cdiscount = Website(
     product_sheet_link_pattern=info_site["product_sheet_link_pattern"],
 )
 
-visited_shops_urls = set()
 shops_queue = queue.Queue()
 
-crawler = Crawler(cdiscount)
-
-crawler.crawl(visited_shops_urls, shops_queue)
+Crawler(cdiscount).crawl(shops_queue)

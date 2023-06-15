@@ -289,7 +289,43 @@ class Crawler:
             )
         return url
 
-    def crawl(self, visited_shops_urls: set, shops_queue: queue.Queue):
+    def save_sivited_shops_urls(self, visited_shops_urls: set):
+        with open(
+            f"{self.website_info.name}/shop_urls/visited_shops_urls.txt", "w"
+        ) as f:
+            for url in visited_shops_urls:
+                f.write(url + "\n")
+
+    def load_visited_shops_urls(self) -> set:
+        try:
+            with open(
+                f"{self.website_info.name}/shop_urls/visited_shops_urls.txt", "r"
+            ) as f:
+                visited_shops_urls = f.readlines()
+        except Exception:
+            visited_shops_urls = set()
+        if len(visited_shops_urls) < 1:
+            visited_shops_urls = set()
+        return visited_shops_urls
+
+    def dump_data(self, raw_data: json, visited_shops_urls: set):
+        """Save raw data to parquet file. the file name will be to the format: raw_data_{curent_day}_{houre-mn-seond}.parquet
+
+        Args:
+            raw_data (_type_): _description_
+        """
+        df = pd.DataFrame(
+            {"seller_name": raw_data.keys(), "raw_data": raw_data.values()}
+        )
+        df["dump_time"] = time.time()
+        df.to_parquet(
+            f"{self.website_info.name}/raw_data/raw_data_{time.strftime('%Y-%m-%d_%H:%M:%S')}.parquet",
+            engine="pyarrow",
+        )
+        self.save_sivited_shops_urls(visited_shops_urls)
+
+    def crawl(self, shops_queue: queue.Queue):
+        visited_shops_urls = self.load_visited_shops_urls()
         raw_data = {}
         home_page = self.get_page(self.website_info.home_page)
         self.wait(3, 7)
@@ -310,46 +346,45 @@ class Crawler:
                     shop_link = shops_queue.get()
                     print(f"Seller page to preprocessing: {shop_link} ...")
                     if shop_link not in visited_shops_urls:
-                        shop_page = self.get_page(shop_link)
-                        self.wait(3, 8)
-                        # Get top products from shop page 1
-                        top_product_page_1_links = self.get_all_product_sheet_links(
-                            shop_page
-                        )
-                        for i, product_link in enumerate(top_product_page_1_links):
-                            product_page = self.get_page(product_link)
-                            self.wait(4, 8)
-                            self.get_all_shops_urls(
-                                product_page, shops_queue, visited_shops_urls
+                        try:
+                            shop_page = self.get_page(shop_link)
+                            self.wait(3, 8)
+                            # Get top products from shop page 1
+                            top_product_page_1_links = self.get_all_product_sheet_links(
+                                shop_page
                             )
-                            product_infos = self.parse_product_sheet_page(product_page)
-                            other_offers_link = self.safe_get(
-                                product_page,
-                                self.website_info.tags.get("seller_listing"),
-                            )
-                            if other_offers_link:
-                                other_offers_page = self.get_other_offers_page(
-                                    other_offers_link
-                                )
+                            for i, product_link in enumerate(top_product_page_1_links):
+                                product_page = self.get_page(product_link)
+                                self.wait(4, 8)
                                 self.get_all_shops_urls(
-                                    other_offers_page, shops_queue, visited_shops_urls
+                                    product_page, shops_queue, visited_shops_urls
                                 )
-                                other_offers = self.parse_other_offers(
-                                    other_offers_page
+                                product_infos = self.parse_product_sheet_page(
+                                    product_page
                                 )
-                                product_infos["offers"] = other_offers
-                            shop_infos[f"product_{i+1}"] = product_infos
-                        visited_shops_urls.add(shop_link)
-                    raw_data.update(shop_infos)
+                                other_offers_link = self.safe_get(
+                                    product_page,
+                                    self.website_info.tags.get("seller_listing"),
+                                )
+                                if other_offers_link:
+                                    other_offers_page = self.get_other_offers_page(
+                                        other_offers_link
+                                    )
+                                    self.get_all_shops_urls(
+                                        other_offers_page,
+                                        shops_queue,
+                                        visited_shops_urls,
+                                    )
+                                    other_offers = self.parse_other_offers(
+                                        other_offers_page
+                                    )
+                                    product_infos["offers"] = other_offers
+                                shop_infos[f"product_{i+1}"] = product_infos
+                            visited_shops_urls.add(shop_link)
+                        except Exception as e:
+                            print(f"Error in crawl: {e}")
+                    if len(shop_infos) > 0:
+                        raw_data[shop_infos["product_1"]["seller_name_fp"]] = shop_infos
                     if len(raw_data) % self.website_info.batch == 0:
-                        # TODO: tranform raw_data in json format to dataframe and save to parquet
-                        json_object = json.dumps(raw_data, indent=3)
-                        jsonFile = open("all_top_product_shop.json", "w")
-                        jsonFile.write(json_object)
-                        jsonFile.close()
-                        df = pd.read_json("all_top_product_shop.json").to_parquet(
-                            "try_to_parquet.parquet", engine="fastparquet"
-                        )
-                        del raw_data
-                    else:
-                        pass
+                        self.dump_data(raw_data, visited_shops_urls)
+                        raw_data = {}
