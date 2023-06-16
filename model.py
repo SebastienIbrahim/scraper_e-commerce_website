@@ -391,4 +391,4 @@ class Crawler:
                         ] = shop_infos
                     if len(self.raw_data) % self.website_info.batch == 0:
                         self.dump_data(visited_shops_urls)
-                        # self.raw_data = {}
+                        self.raw_data = {}
