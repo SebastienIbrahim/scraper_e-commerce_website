@@ -80,6 +80,8 @@ class Crawler:
         # TODO: save visited pages to cloud storage
         self.visited = set()
         self.driver = Driver()
+        self.df = pd.DataFrame()
+        self.raw_data = {}
 
     def get_page(self, url) -> bs4.BeautifulSoup:
         # driver = Driver()
@@ -98,7 +100,7 @@ class Crawler:
     def get_other_offers_page(self, other_offers_link: str) -> str:
         other_offers_link_normalized = self._normalize_url(other_offers_link)
         other_offers_page = self.get_page(other_offers_link_normalized)
-        self.wait(3, 8)
+        self.wait(10, 20)
         return other_offers_page
 
     def get_all_shops_urls(
@@ -145,7 +147,7 @@ class Crawler:
         ]
         return product_sheet_links
 
-    def wait(self, delay_min, delay_max):
+    def wait(self, delay_min: int, delay_max: int):
         random_delay = random.randint(delay_min, delay_max)
         print(f"We wait for {random_delay} 's before continue")
         time.sleep(random_delay)
@@ -308,31 +310,31 @@ class Crawler:
             visited_shops_urls = set()
         return visited_shops_urls
 
-    def dump_data(self, raw_data: json, visited_shops_urls: set):
+    def dump_data(self, visited_shops_urls: set):
         """Save raw data to parquet file. the file name will be to the format: raw_data_{curent_day}_{houre-mn-seond}.parquet
 
         Args:
             raw_data (_type_): _description_
         """
         df = pd.DataFrame(
-            {"seller_name": raw_data.keys(), "raw_data": raw_data.values()}
+            {"seller_name": self.raw_data.keys(), "raw_data": self.raw_data.values()}
         )
         df["dump_time"] = time.time()
-        df.to_parquet(
-            f"{self.website_info.name}/raw_data/raw_data_{time.strftime('%Y-%m-%d_%H:%M:%S')}.parquet",
-            engine="pyarrow",
+        self.df = df
+        df.to_csv(
+            f"{self.website_info.name}/raw_data/raw_data_{time.strftime('%Y-%m-%d_%H:%M:%S')}.csv",
+            index=False,
         )
         self.save_sivited_shops_urls(visited_shops_urls)
 
     def crawl(self, shops_queue: queue.Queue):
         visited_shops_urls = self.load_visited_shops_urls()
-        raw_data = {}
         home_page = self.get_page(self.website_info.home_page)
         self.wait(3, 7)
         product_sheet_links = self.get_all_product_sheet_links(home_page)
         for product_sheet_link in product_sheet_links:
             product_page = self.get_page(product_sheet_link)
-            self.wait(4, 8)
+            self.wait(10, 20)
             other_offers_link = self.safe_get(
                 product_page, self.website_info.tags.get("seller_listing")
             )
@@ -348,14 +350,14 @@ class Crawler:
                     if shop_link not in visited_shops_urls:
                         try:
                             shop_page = self.get_page(shop_link)
-                            self.wait(3, 8)
+                            self.wait(10, 20)
                             # Get top products from shop page 1
                             top_product_page_1_links = self.get_all_product_sheet_links(
                                 shop_page
                             )
                             for i, product_link in enumerate(top_product_page_1_links):
                                 product_page = self.get_page(product_link)
-                                self.wait(4, 8)
+                                self.wait(10, 20)
                                 self.get_all_shops_urls(
                                     product_page, shops_queue, visited_shops_urls
                                 )
@@ -384,7 +386,9 @@ class Crawler:
                         except Exception as e:
                             print(f"Error in crawl: {e}")
                     if len(shop_infos) > 0:
-                        raw_data[shop_infos["product_1"]["seller_name_fp"]] = shop_infos
-                    if len(raw_data) % self.website_info.batch == 0:
-                        self.dump_data(raw_data, visited_shops_urls)
-                        raw_data = {}
+                        self.raw_data[
+                            shop_infos["product_1"]["seller_name_fp"]
+                        ] = shop_infos
+                    if len(self.raw_data) % self.website_info.batch == 0:
+                        self.dump_data(visited_shops_urls)
+                        # self.raw_data = {}
