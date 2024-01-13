@@ -1,0 +1,15 @@
+chromedriver_path: /usr/local/bin/chromedriver
+sites:
+# warning: tag is xpath expression, think to chage it you use BeautifulSoup selector
+  cdiscount:
+    name: Cdiscount
+    url: https://www.cdiscount.com
+    target_pattern: (\/f-\d+.*\.html)|(\/mpv.*-\d+.*\.html)
+    absolute_url: True
+    title_tag: //h1[@itemprop="name"] 
+    ean_tag: //*[contains(text(),'pr_ean')]
+    ean_pattern: (\["pr_ean"\]=).(\d+)
+    price_tag: //span[@class="fpPrice price priceColor jsMainPrice jsProductPrice hideFromPro" and @itemprop="price"]//text()
+    seller_tag: //a[@class="fpSellerName"] # if no seller, then it's Cdiscount
+    captcha_tag: //div[contains(@class, "white-square")][contains(@p, "")]
+    seller_listing_tag: //p[@class="fpOtherOffer"] # //p[@class="fpOtherOffer"]/a/@href
